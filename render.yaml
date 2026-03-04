@@ -45,12 +45,14 @@ services:
         value: teacher
       - key: TEACHER_PASSWORD
         sync: false
+      - key: TEACHER_INVITE_CODE
+        sync: false
 
   - type: web
     name: school-frontend
     runtime: static
     rootDir: frontend/studentPanel
-    buildCommand: npm ci && VITE_API_BASE_URL="${VITE_API_BASE_URL:-$BACKEND_EXTERNAL_URL/api}" npm run build
+    buildCommand: npm ci && VITE_API_BASE_URL="${VITE_API_BASE_URL:-${BACKEND_EXTERNAL_URL:+$BACKEND_EXTERNAL_URL/api}}" && test -n "$VITE_API_BASE_URL" && npm run build
     staticPublishPath: dist
     envVars:
       - key: NODE_VERSION

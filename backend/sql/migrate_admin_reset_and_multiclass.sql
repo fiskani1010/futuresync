@@ -7,6 +7,7 @@ USE school_attendance;
 CREATE TABLE IF NOT EXISTS teachers (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(120) NOT NULL UNIQUE,
+  email VARCHAR(160) NULL,
   full_name VARCHAR(160) NULL,
   password_hash CHAR(128) NOT NULL,
   password_salt CHAR(32) NOT NULL,
@@ -17,7 +18,22 @@ CREATE TABLE IF NOT EXISTS teachers (
 
 ALTER TABLE teachers
   ADD COLUMN IF NOT EXISTS role ENUM('admin', 'lecturer') NOT NULL DEFAULT 'lecturer',
-  ADD COLUMN IF NOT EXISTS created_by_admin_id INT NULL;
+  ADD COLUMN IF NOT EXISTS created_by_admin_id INT NULL,
+  ADD COLUMN IF NOT EXISTS email VARCHAR(160) NULL;
+
+SET @idx_teacher_email_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = 'teachers'
+    AND index_name = 'uniq_teacher_email'
+);
+SET @sql_add_teacher_email_idx := IF(@idx_teacher_email_exists = 0,
+  'ALTER TABLE teachers ADD UNIQUE KEY uniq_teacher_email (email)',
+  'SELECT "uniq_teacher_email exists"');
+PREPARE stmt_add_teacher_email_idx FROM @sql_add_teacher_email_idx;
+EXECUTE stmt_add_teacher_email_idx;
+DEALLOCATE PREPARE stmt_add_teacher_email_idx;
 
 SET @fk_teachers_admin_exists := (
   SELECT COUNT(*)

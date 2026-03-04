@@ -5,6 +5,14 @@ const { createToken, verifyToken } = require('../utils/authToken');
 const { hashPassword, verifyPassword, isBcryptHash } = require('../utils/password');
 const pool = require('../db');
 
+function normalizeEmail(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function normalizeIdentifier(value) {
+    return String(value || '').trim();
+}
+
 async function requireAdmin(req, res) {
     const authHeader = req.headers.authorization || '';
     const [scheme, token] = authHeader.split(' ');
@@ -36,30 +44,54 @@ async function requireAdmin(req, res) {
 
 router.post('/register', async (req, res) => {
     try {
-        const username = String(req.body?.username || '').trim();
+        const name = String(req.body?.name || req.body?.fullName || '').trim();
+        const email = normalizeEmail(req.body?.email || req.body?.username);
         const password = String(req.body?.password || '');
-        const fullName = String(req.body?.fullName || '').trim();
+        const inviteCode = String(req.body?.inviteCode || '');
+        const requiredInviteCode = String(process.env.TEACHER_INVITE_CODE || '').trim();
 
-        if (!username || !password) {
-            return res.status(400).json({ error: 'username and password are required' });
+        if (!name || !email || !password) {
+            return res.status(400).json({ error: 'name, email, and password are required' });
         }
         if (password.length < 8) {
             return res.status(400).json({ error: 'password must be at least 8 characters' });
+        }
+        if (requiredInviteCode && inviteCode !== requiredInviteCode) {
+            return res.status(403).json({ error: 'Invalid invite code' });
+        }
+
+        const username = email;
+        const [existingRows] = await pool.query(
+            `
+            SELECT id
+            FROM teachers
+            WHERE LOWER(username) = LOWER(?) OR LOWER(IFNULL(email, '')) = LOWER(?)
+            LIMIT 1
+            `,
+            [username, email]
+        );
+        if (existingRows.length > 0) {
+            return res.status(409).json({ error: 'Teacher account already exists' });
         }
 
         const { salt, hash } = hashPassword(password);
         await pool.query(
             `
-            INSERT INTO teachers (username, full_name, password_hash, password_salt, role)
-            VALUES (?, ?, ?, ?, 'lecturer')
+            INSERT INTO teachers (username, email, full_name, password_hash, password_salt, role)
+            VALUES (?, ?, ?, ?, ?, 'lecturer')
             `,
-            [username, fullName || null, hash, salt]
+            [username, email, name || null, hash, salt]
         );
 
-        return res.status(201).json({ message: 'Teacher registered successfully', username });
+        const token = createToken({ role: 'lecturer', username });
+        return res.status(201).json({
+            message: 'Teacher registered successfully',
+            token,
+            teacher: { username, email, role: 'lecturer', full_name: name || null }
+        });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ error: 'username already exists' });
+            return res.status(409).json({ error: 'Teacher account already exists' });
         }
         console.error(err.message);
         return res.status(500).json({ error: 'Could not register teacher' });
@@ -67,18 +99,22 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-    const username = String(req.body?.username || '').trim();
+    const identifier = normalizeIdentifier(req.body?.identifier || req.body?.email || req.body?.username);
     const password = String(req.body?.password || '');
+
+    if (!identifier || !password) {
+        return res.status(400).json({ error: 'identifier and password are required' });
+    }
 
     try {
         const [rows] = await pool.query(
             `
-            SELECT username, role, password_hash, password_salt
+            SELECT username, email, role, full_name, password_hash, password_salt
             FROM teachers
-            WHERE username = ?
+            WHERE LOWER(username) = LOWER(?) OR LOWER(IFNULL(email, '')) = LOWER(?)
             LIMIT 1
             `,
-            [username]
+            [identifier, identifier]
         );
 
         if (rows.length === 0) {
@@ -112,7 +148,12 @@ router.post('/login', async (req, res) => {
         return res.json({
             message: 'Login successful',
             token,
-            teacher: { username: teacher.username, role: teacher.role || 'lecturer' }
+            teacher: {
+                username: teacher.username,
+                email: teacher.email || null,
+                full_name: teacher.full_name || null,
+                role: teacher.role || 'lecturer'
+            }
         });
     } catch (err) {
         console.error(err.message);
@@ -122,12 +163,12 @@ router.post('/login', async (req, res) => {
 
 router.post('/forgot-password', async (req, res) => {
     try {
-        const username = String(req.body?.username || '').trim();
+        const identifier = normalizeIdentifier(req.body?.identifier || req.body?.email || req.body?.username);
         const newPassword = String(req.body?.newPassword || '');
         const resetKey = String(req.body?.resetKey || '');
 
-        if (!username || !newPassword || !resetKey) {
-            return res.status(400).json({ error: 'username, newPassword, and resetKey are required' });
+        if (!identifier || !newPassword || !resetKey) {
+            return res.status(400).json({ error: 'identifier, newPassword, and resetKey are required' });
         }
         if (newPassword.length < 8) {
             return res.status(400).json({ error: 'newPassword must be at least 8 characters' });
@@ -139,14 +180,14 @@ router.post('/forgot-password', async (req, res) => {
             SELECT pr.id, pr.teacher_id
             FROM password_resets pr
             INNER JOIN teachers t ON t.id = pr.teacher_id
-            WHERE t.username = ?
+            WHERE LOWER(t.username) = LOWER(?) OR LOWER(IFNULL(t.email, '')) = LOWER(?)
               AND pr.token_hash = ?
               AND pr.used_at IS NULL
               AND pr.expires_at > NOW()
             ORDER BY pr.id DESC
             LIMIT 1
             `,
-            [username, keyHash]
+            [identifier, identifier, keyHash]
         );
 
         if (resetRows.length === 0) {
@@ -186,7 +227,7 @@ router.get('/me', async (req, res) => {
         }
 
         const [rows] = await pool.query(
-            'SELECT username, role, full_name FROM teachers WHERE username = ? LIMIT 1',
+            'SELECT username, email, role, full_name FROM teachers WHERE username = ? LIMIT 1',
             [payload.username]
         );
         if (rows.length === 0) {

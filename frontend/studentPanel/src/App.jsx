@@ -129,8 +129,9 @@ function App() {
   const [showGetStarted, setShowGetStarted] = useState(true);
   const [activePage, setActivePage] = useState('register');
   const [teacherRegisterName, setTeacherRegisterName] = useState('');
-  const [teacherRegisterUsername, setTeacherRegisterUsername] = useState('');
+  const [teacherRegisterEmail, setTeacherRegisterEmail] = useState('');
   const [teacherRegisterPassword, setTeacherRegisterPassword] = useState('');
+  const [teacherRegisterInviteCode, setTeacherRegisterInviteCode] = useState('');
   const [teacherRegisterLoading, setTeacherRegisterLoading] = useState(false);
   const [teacherRegisterError, setTeacherRegisterError] = useState('');
   const [teacherRegisterSuccess, setTeacherRegisterSuccess] = useState('');
@@ -793,16 +794,16 @@ function App() {
 
   const handleTeacherLogin = async (event) => {
     event.preventDefault();
-    const username = loginUsername.trim();
-    if (!username || !loginPassword) {
-      setLoginError('Username and password are required.');
+    const identifier = loginUsername.trim();
+    if (!identifier || !loginPassword) {
+      setLoginError('Email/username and password are required.');
       return;
     }
 
     setLoginLoading(true);
     setLoginError('');
     try {
-      const res = await loginTeacher(username, loginPassword);
+      const res = await loginTeacher(identifier, loginPassword);
       if (!res?.data?.token) {
         setLoginError('Login response missing token.');
         return;
@@ -840,11 +841,17 @@ function App() {
   const handleTeacherRegister = async (event) => {
     event.preventDefault();
     const fullName = teacherRegisterName.trim();
-    const username = teacherRegisterUsername.trim();
+    const email = teacherRegisterEmail.trim().toLowerCase();
     const password = teacherRegisterPassword;
+    const inviteCode = teacherRegisterInviteCode.trim();
 
-    if (!username || !password) {
-      setTeacherRegisterError('Username and password are required.');
+    if (!fullName || !email || !password) {
+      setTeacherRegisterError('Name, email, and password are required.');
+      return;
+    }
+    const simpleEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!simpleEmailPattern.test(email)) {
+      setTeacherRegisterError('Enter a valid email address.');
       return;
     }
     if (password.length < 8) {
@@ -856,11 +863,12 @@ function App() {
     setTeacherRegisterError('');
     setTeacherRegisterSuccess('');
     try {
-      await registerTeacher(username, password, fullName);
+      await registerTeacher(fullName, email, password, inviteCode);
       setTeacherRegisterSuccess('Teacher account created. You can now log in.');
       setTeacherRegisterName('');
-      setTeacherRegisterUsername('');
+      setTeacherRegisterEmail('');
       setTeacherRegisterPassword('');
+      setTeacherRegisterInviteCode('');
       setAuthView('login');
     } catch (err) {
       console.error('Error registering teacher:', err);
@@ -904,9 +912,9 @@ function App() {
 
   const handleForgotPassword = async (event) => {
     event.preventDefault();
-    const username = forgotUsername.trim();
-    if (!username || !forgotNewPassword || !forgotResetKey) {
-      setForgotError('Username, new password, and reset key are required.');
+    const identifier = forgotUsername.trim();
+    if (!identifier || !forgotNewPassword || !forgotResetKey) {
+      setForgotError('Email/username, new password, and reset key are required.');
       return;
     }
     if (forgotNewPassword.length < 8) {
@@ -918,7 +926,7 @@ function App() {
     setForgotError('');
     setForgotSuccess('');
     try {
-      await forgotTeacherPassword(username, forgotNewPassword, forgotResetKey);
+      await forgotTeacherPassword(identifier, forgotNewPassword, forgotResetKey);
       setForgotSuccess('Password reset successful. You can now sign in.');
       setForgotUsername('');
       setForgotNewPassword('');
@@ -1159,7 +1167,7 @@ function App() {
                   type="text"
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
-                  placeholder="Teacher username"
+                  placeholder="Teacher email or username"
                   autoComplete="username"
                 />
                 <input
@@ -1185,19 +1193,25 @@ function App() {
                   type="text"
                   value={teacherRegisterName}
                   onChange={(e) => setTeacherRegisterName(e.target.value)}
-                  placeholder="Teacher full name (optional)"
+                  placeholder="Teacher full name"
                 />
                 <input
-                  type="text"
-                  value={teacherRegisterUsername}
-                  onChange={(e) => setTeacherRegisterUsername(e.target.value)}
-                  placeholder="Teacher username"
+                  type="email"
+                  value={teacherRegisterEmail}
+                  onChange={(e) => setTeacherRegisterEmail(e.target.value)}
+                  placeholder="Teacher email"
                 />
                 <input
                   type="password"
                   value={teacherRegisterPassword}
                   onChange={(e) => setTeacherRegisterPassword(e.target.value)}
                   placeholder="Password (min 8 chars)"
+                />
+                <input
+                  type="text"
+                  value={teacherRegisterInviteCode}
+                  onChange={(e) => setTeacherRegisterInviteCode(e.target.value)}
+                  placeholder="Invite code (if required)"
                 />
                 <button className="btn btn-primary" type="submit" disabled={teacherRegisterLoading}>
                   {teacherRegisterLoading ? 'Creating...' : 'Create Teacher Account'}
@@ -1213,7 +1227,7 @@ function App() {
                   type="text"
                   value={forgotUsername}
                   onChange={(e) => setForgotUsername(e.target.value)}
-                  placeholder="Teacher username"
+                  placeholder="Teacher email or username"
                 />
                 <input
                   type="password"

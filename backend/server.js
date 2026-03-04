@@ -50,6 +50,7 @@ app.get('/health', async (req, res) => {
 //auth route (public)
 const authRoute = require('./routes/auth');
 app.use('/api/auth', authRoute);
+app.use('/api/teachers', authRoute);
 
 //student self-registration route (public)
 const publicRegistrationRoute = require('./routes/publicRegistration');
@@ -91,6 +92,7 @@ async function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS teachers (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(120) NOT NULL UNIQUE,
+            email VARCHAR(160) NULL,
             full_name VARCHAR(160) NULL,
             password_hash CHAR(128) NOT NULL,
             password_salt CHAR(32) NOT NULL,
@@ -124,6 +126,32 @@ async function initializeDatabase() {
     );
     if (createdByColumnRows.length === 0) {
         await pool.query('ALTER TABLE teachers ADD COLUMN created_by_admin_id INT NULL');
+    }
+
+    const [emailColumnRows] = await pool.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'teachers'
+          AND COLUMN_NAME = 'email'
+        `
+    );
+    if (emailColumnRows.length === 0) {
+        await pool.query('ALTER TABLE teachers ADD COLUMN email VARCHAR(160) NULL');
+    }
+
+    const [emailIndexRows] = await pool.query(
+        `
+        SELECT INDEX_NAME
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'teachers'
+          AND INDEX_NAME = 'uniq_teacher_email'
+        `
+    );
+    if (emailIndexRows.length === 0) {
+        await pool.query('ALTER TABLE teachers ADD UNIQUE KEY uniq_teacher_email (email)');
     }
 
     const [teacherAdminFkRows] = await pool.query(

@@ -33,14 +33,14 @@ export const getStoredAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
 export const setStoredAuthToken = (token) => localStorage.setItem(AUTH_TOKEN_KEY, token);
 export const clearStoredAuthToken = () => localStorage.removeItem(AUTH_TOKEN_KEY);
 
-export const loginTeacher = (username, password) =>
-  axios.post(`${API_BASE_URL}/auth/login`, { username, password });
+export const loginTeacher = (identifier, password) =>
+  axios.post(`${API_BASE_URL}/teachers/login`, { identifier, password });
 
-export const registerTeacher = (username, password, fullName) =>
-  axios.post(`${API_BASE_URL}/auth/register`, { username, password, fullName });
+export const registerTeacher = (name, email, password, inviteCode) =>
+  axios.post(`${API_BASE_URL}/teachers/register`, { name, email, password, inviteCode });
 
-export const forgotTeacherPassword = (username, newPassword, resetKey) =>
-  axios.post(`${API_BASE_URL}/auth/forgot-password`, { username, newPassword, resetKey });
+export const forgotTeacherPassword = (identifier, newPassword, resetKey) =>
+  axios.post(`${API_BASE_URL}/teachers/forgot-password`, { identifier, newPassword, resetKey });
 
 export const getCurrentTeacher = () => api.get('/auth/me');
 export const adminCreateLecturer = (username, password, fullName) =>

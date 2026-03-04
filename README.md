@@ -8,12 +8,13 @@ This project includes:
 
 - Added missing `students` table bootstrap in backend startup for fresh databases.
 - Removed insecure login fallback to hardcoded/default credentials.
-- Added production guards for required secrets (`JWT_SECRET`, `TEACHER_PASSWORD`).
+- Added production guard for required secret (`JWT_SECRET`).
 - Added configurable CORS via `CORS_ORIGIN`.
 - Added DB host port + SSL toggles (`DB_PORT`, `DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`).
 - Added `/health` endpoint for Render health checks.
 - Added Render blueprint (`render.yaml`) and `.env.example` templates.
 - Switched password hashing to bcrypt with automatic migration for legacy PBKDF2 hashes on login.
+- Added teacher self-registration by email with optional invite-code protection.
 
 ## Render Deployment
 
@@ -60,6 +61,7 @@ Optional:
 - `DB_CA_CERT` or `DB_CA_CERT_PATH`
 - `TEACHER_USERNAME` (default `teacher`)
 - `TEACHER_PASSWORD` (only needed if you want automatic bootstrap admin creation)
+- `TEACHER_INVITE_CODE` (if set, teacher self-registration requires this code)
 - `CORS_ORIGIN` (optional override; by default backend uses frontend `RENDER_EXTERNAL_URL` from blueprint wiring)
 
 ### 4. Set frontend API base URL
