@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const { createToken, verifyToken } = require('../utils/authToken');
-const { hashPassword, verifyPassword } = require('../utils/password');
+const { hashPassword, verifyPassword, isBcryptHash } = require('../utils/password');
 const pool = require('../db');
 
 async function requireAdmin(req, res) {
@@ -89,6 +89,23 @@ router.post('/login', async (req, res) => {
         const passwordOk = verifyPassword(password, teacher.password_salt, teacher.password_hash);
         if (!passwordOk) {
             return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        // Migrate legacy PBKDF2 hashes to bcrypt on successful login.
+        if (!isBcryptHash(teacher.password_hash)) {
+            try {
+                const { salt, hash } = hashPassword(password);
+                await pool.query(
+                    `
+                    UPDATE teachers
+                    SET password_hash = ?, password_salt = ?
+                    WHERE username = ?
+                    `,
+                    [hash, salt, teacher.username]
+                );
+            } catch (migrationErr) {
+                console.error('Could not migrate legacy password hash:', migrationErr.message);
+            }
         }
 
         const token = createToken({ role: teacher.role || 'lecturer', username: teacher.username });

@@ -13,6 +13,7 @@ This project includes:
 - Added DB host port + SSL toggles (`DB_PORT`, `DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`).
 - Added `/health` endpoint for Render health checks.
 - Added Render blueprint (`render.yaml`) and `.env.example` templates.
+- Switched password hashing to bcrypt with automatic migration for legacy PBKDF2 hashes on login.
 
 ## Render Deployment
 
