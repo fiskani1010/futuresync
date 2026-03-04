@@ -47,6 +47,9 @@ export const adminCreateLecturer = (username, password, fullName) =>
   api.post('/auth/admin/create-lecturer', { username, password, fullName });
 export const adminGenerateResetKey = (username, expiresHours = 24) =>
   api.post('/auth/admin/generate-reset-key', { username, expiresHours });
+export const getAdminTeachers = () => api.get('/auth/admin/teachers');
+export const updateAdminTeacherRole = (teacherId, role) =>
+  api.put(`/auth/admin/teachers/${teacherId}/role`, { role });
 
 export const registerStudentSelf = (name, registrationNumber, classCode) =>
   axios.post(`${API_BASE_URL}/public/register`, { name, registrationNumber, classCode });

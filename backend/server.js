@@ -202,6 +202,29 @@ async function initializeDatabase() {
         }
     }
 
+    const [adminRows] = await pool.query(
+        `
+        SELECT id
+        FROM teachers
+        WHERE role = 'admin'
+        LIMIT 1
+        `
+    );
+    if (adminRows.length === 0) {
+        const [firstTeacherRows] = await pool.query(
+            `
+            SELECT id, username
+            FROM teachers
+            ORDER BY id ASC
+            LIMIT 1
+            `
+        );
+        if (firstTeacherRows.length > 0) {
+            await pool.query('UPDATE teachers SET role = "admin" WHERE id = ?', [firstTeacherRows[0].id]);
+            console.info(`Promoted "${firstTeacherRows[0].username}" as initial admin.`);
+        }
+    }
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS password_resets (
             id INT AUTO_INCREMENT PRIMARY KEY,

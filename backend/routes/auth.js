@@ -74,20 +74,30 @@ router.post('/register', async (req, res) => {
             return res.status(409).json({ error: 'Teacher account already exists' });
         }
 
+        const [adminCountRows] = await pool.query(
+            `
+            SELECT COUNT(*) AS admin_count
+            FROM teachers
+            WHERE role = 'admin'
+            `
+        );
+        const hasAdmin = Number(adminCountRows?.[0]?.admin_count || 0) > 0;
+        const assignedRole = hasAdmin ? 'lecturer' : 'admin';
+
         const { salt, hash } = hashPassword(password);
         await pool.query(
             `
             INSERT INTO teachers (username, email, full_name, password_hash, password_salt, role)
-            VALUES (?, ?, ?, ?, ?, 'lecturer')
+            VALUES (?, ?, ?, ?, ?, ?)
             `,
-            [username, email, name || null, hash, salt]
+            [username, email, name || null, hash, salt, assignedRole]
         );
 
-        const token = createToken({ role: 'lecturer', username });
+        const token = createToken({ role: assignedRole, username });
         return res.status(201).json({
             message: 'Teacher registered successfully',
             token,
-            teacher: { username, email, role: 'lecturer', full_name: name || null }
+            teacher: { username, email, role: assignedRole, full_name: name || null }
         });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -324,6 +334,101 @@ router.post('/admin/generate-reset-key', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         return res.status(500).json({ error: 'Could not generate reset key' });
+    }
+});
+
+router.get('/admin/teachers', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) {
+            return;
+        }
+
+        const [rows] = await pool.query(
+            `
+            SELECT id, username, email, full_name, role, created_at, created_by_admin_id
+            FROM teachers
+            ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, created_at ASC, id ASC
+            `
+        );
+
+        return res.json({ teachers: rows });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Could not fetch teachers' });
+    }
+});
+
+router.put('/admin/teachers/:id/role', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) {
+            return;
+        }
+
+        const teacherId = Number(req.params.id);
+        const nextRole = String(req.body?.role || '').trim().toLowerCase();
+        if (!Number.isInteger(teacherId) || teacherId <= 0) {
+            return res.status(400).json({ error: 'Valid teacher id is required' });
+        }
+        if (!['admin', 'lecturer'].includes(nextRole)) {
+            return res.status(400).json({ error: 'role must be admin or lecturer' });
+        }
+
+        const [targetRows] = await pool.query(
+            `
+            SELECT id, username, role
+            FROM teachers
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [teacherId]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ error: 'Teacher not found' });
+        }
+
+        const target = targetRows[0];
+        if (target.role === 'admin' && nextRole === 'lecturer') {
+            const [adminCountRows] = await pool.query(
+                `
+                SELECT COUNT(*) AS admin_count
+                FROM teachers
+                WHERE role = 'admin'
+                `
+            );
+            const adminCount = Number(adminCountRows?.[0]?.admin_count || 0);
+            if (adminCount <= 1) {
+                return res.status(400).json({ error: 'At least one admin account is required' });
+            }
+        }
+
+        await pool.query(
+            `
+            UPDATE teachers
+            SET role = ?
+            WHERE id = ?
+            `,
+            [nextRole, teacherId]
+        );
+
+        const [updatedRows] = await pool.query(
+            `
+            SELECT id, username, email, full_name, role, created_at, created_by_admin_id
+            FROM teachers
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [teacherId]
+        );
+
+        return res.json({
+            message: `Role updated for ${target.username}`,
+            teacher: updatedRows[0]
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Could not update teacher role' });
     }
 });
 

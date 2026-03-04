@@ -18,6 +18,8 @@ import {
   getCurrentTeacher,
   adminCreateLecturer,
   adminGenerateResetKey,
+  getAdminTeachers,
+  updateAdminTeacherRole,
   getStoredAuthToken,
   setStoredAuthToken,
   clearStoredAuthToken,
@@ -162,11 +164,21 @@ function App() {
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError] = useState('');
   const [adminActionSuccess, setAdminActionSuccess] = useState('');
+  const [adminTeachers, setAdminTeachers] = useState([]);
+  const [adminTeachersLoading, setAdminTeachersLoading] = useState(false);
+  const [adminTeachersError, setAdminTeachersError] = useState('');
+  const [adminRoleSavingId, setAdminRoleSavingId] = useState(null);
 
   const bootstrapAuthenticatedSession = async () => {
     try {
       const meRes = await getCurrentTeacher();
-      setCurrentTeacher(meRes?.data?.teacher || null);
+      const teacher = meRes?.data?.teacher || null;
+      setCurrentTeacher(teacher);
+      if (teacher?.role === 'admin') {
+        await fetchAdminTeachers();
+      } else {
+        setAdminTeachers([]);
+      }
       await fetchClasses();
     } catch {
       clearStoredAuthToken();
@@ -302,6 +314,25 @@ function App() {
       setError('Could not load classes.');
     } finally {
       setClassActionLoading(false);
+    }
+  };
+
+  const fetchAdminTeachers = async () => {
+    setAdminTeachersLoading(true);
+    setAdminTeachersError('');
+    try {
+      const res = await getAdminTeachers();
+      setAdminTeachers(Array.isArray(res?.data?.teachers) ? res.data.teachers : []);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearStoredAuthToken();
+        setIsAuthenticated(false);
+        setLoginError('Session expired. Please log in again.');
+        return;
+      }
+      setAdminTeachersError(err?.response?.data?.error || 'Could not load teachers.');
+    } finally {
+      setAdminTeachersLoading(false);
     }
   };
 
@@ -836,6 +867,10 @@ function App() {
     setSelectedClassCode('');
     setClasses([]);
     setCurrentTeacher(null);
+    setAdminTeachers([]);
+    setAdminTeachersError('');
+    setAdminRoleSavingId(null);
+    setAdminTeachersLoading(false);
   };
 
   const handleTeacherRegister = async (event) => {
@@ -960,6 +995,7 @@ function App() {
     setAdminActionSuccess('');
     try {
       await adminCreateLecturer(username, password, fullName);
+      await fetchAdminTeachers();
       setAdminActionSuccess(`Lecturer "${username}" created successfully.`);
       setAdminLecturerUsername('');
       setAdminLecturerFullName('');
@@ -993,6 +1029,53 @@ function App() {
       setAdminActionError(err?.response?.data?.error || 'Could not generate reset key.');
     } finally {
       setAdminActionLoading(false);
+    }
+  };
+
+  const handleAdminRoleUpdate = async (teacherId, role) => {
+    const normalizedRole = String(role || '').trim().toLowerCase();
+    if (!['admin', 'lecturer'].includes(normalizedRole)) {
+      return;
+    }
+
+    setAdminRoleSavingId(teacherId);
+    setAdminActionError('');
+    setAdminActionSuccess('');
+    try {
+      const res = await updateAdminTeacherRole(teacherId, normalizedRole);
+      const updatedTeacher = res?.data?.teacher;
+
+      if (updatedTeacher) {
+        setAdminTeachers((prev) =>
+          prev.map((teacher) =>
+            String(teacher.id) === String(updatedTeacher.id) ? updatedTeacher : teacher
+          )
+        );
+        if (currentTeacher?.username && updatedTeacher.username === currentTeacher.username) {
+          setCurrentTeacher((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  role: updatedTeacher.role
+                }
+              : prev
+          );
+        }
+      } else {
+        await fetchAdminTeachers();
+      }
+
+      setAdminActionSuccess(res?.data?.message || 'Role updated.');
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearStoredAuthToken();
+        setIsAuthenticated(false);
+        setLoginError('Session expired. Please log in again.');
+        return;
+      }
+      setAdminActionError(err?.response?.data?.error || 'Could not update teacher role.');
+    } finally {
+      setAdminRoleSavingId(null);
     }
   };
 
@@ -1377,7 +1460,55 @@ function App() {
                       <textarea className="reset-key-box" readOnly value={adminResetKeyOutput} />
                     )}
                   </form>
+
+                  <div className="admin-form admin-form-wide">
+                    <div className="admin-form-head">
+                      <h3>Teacher Roles</h3>
+                      <button
+                        type="button"
+                        className="btn btn-muted"
+                        onClick={() => void fetchAdminTeachers()}
+                        disabled={adminTeachersLoading || adminRoleSavingId !== null}
+                      >
+                        {adminTeachersLoading ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {adminTeachersLoading ? (
+                      <p className="admin-inline-status">Loading teachers...</p>
+                    ) : adminTeachers.length === 0 ? (
+                      <p className="admin-inline-status">No teacher accounts found yet.</p>
+                    ) : (
+                      <ul className="teacher-role-list">
+                        {adminTeachers.map((teacher) => (
+                          <li key={`teacher-role-${teacher.id}`} className="teacher-role-item">
+                            <div className="teacher-role-meta">
+                              <p className="teacher-role-name">{teacher.full_name || teacher.username}</p>
+                              <p className="teacher-role-sub">{teacher.email || teacher.username}</p>
+                            </div>
+                            <div className="teacher-role-controls">
+                              <label className="teacher-role-label">
+                                Role
+                                <select
+                                  value={teacher.role || 'lecturer'}
+                                  onChange={(event) => void handleAdminRoleUpdate(teacher.id, event.target.value)}
+                                  disabled={adminRoleSavingId !== null || adminTeachersLoading}
+                                >
+                                  <option value="lecturer">Lecturer</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </label>
+                              {adminRoleSavingId === teacher.id && (
+                                <span className="teacher-role-saving">Saving...</span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
+                {adminTeachersError && <p className="status status-error">{adminTeachersError}</p>}
                 {adminActionError && <p className="status status-error">{adminActionError}</p>}
                 {adminActionSuccess && <p className="status status-success">{adminActionSuccess}</p>}
               </section>
