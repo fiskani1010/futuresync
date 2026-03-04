@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const configuredSecret = process.env.JWT_SECRET;
@@ -12,62 +12,25 @@ if (!isProduction && !configuredSecret) {
 }
 
 const TOKEN_SECRET = configuredSecret || 'please-change-this-secret';
+const TOKEN_ISSUER = process.env.JWT_ISSUER || 'futuresync';
+const TOKEN_AUDIENCE = process.env.JWT_AUDIENCE || 'futuresync-users';
 
-function toBase64Url(value) {
-    return Buffer.from(value)
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/g, '');
-}
-
-function fromBase64Url(value) {
-    const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4);
-    return Buffer.from(padded, 'base64').toString('utf8');
-}
-
-function sign(payloadPart) {
-    return crypto.createHmac('sha256', TOKEN_SECRET).update(payloadPart).digest('base64url');
-}
-
-function safeEqual(a, b) {
-    const left = Buffer.from(a);
-    const right = Buffer.from(b);
-    if (left.length !== right.length) {
-        return false;
-    }
-    return crypto.timingSafeEqual(left, right);
-}
-
-function createToken(payload, expiresInSeconds = 60 * 60 * 12) {
-    const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
-    const payloadPart = toBase64Url(JSON.stringify({ ...payload, exp }));
-    const signature = sign(payloadPart);
-    return `${payloadPart}.${signature}`;
+function createToken(payload, expiresIn = '12h') {
+    return jwt.sign(payload, TOKEN_SECRET, {
+        algorithm: 'HS256',
+        expiresIn,
+        issuer: TOKEN_ISSUER,
+        audience: TOKEN_AUDIENCE
+    });
 }
 
 function verifyToken(token) {
-    if (!token || typeof token !== 'string') {
-        return null;
-    }
-
-    const parts = token.split('.');
-    if (parts.length !== 2) {
-        return null;
-    }
-
-    const [payloadPart, signature] = parts;
-    const expectedSignature = sign(payloadPart);
-    if (!safeEqual(signature, expectedSignature)) {
-        return null;
-    }
-
     try {
-        const payload = JSON.parse(fromBase64Url(payloadPart));
-        if (!payload?.exp || payload.exp < Math.floor(Date.now() / 1000)) {
-            return null;
-        }
-        return payload;
+        return jwt.verify(token, TOKEN_SECRET, {
+            algorithms: ['HS256'],
+            issuer: TOKEN_ISSUER,
+            audience: TOKEN_AUDIENCE
+        });
     } catch {
         return null;
     }

@@ -15,6 +15,7 @@ This project includes:
 - Added Render blueprint (`render.yaml`) and `.env.example` templates.
 - Switched password hashing to bcrypt with automatic migration for legacy PBKDF2 hashes on login.
 - Added teacher self-registration by email with optional invite-code protection.
+- Replaced custom token format with standard JWT (`jsonwebtoken`) auth tokens.
 
 ## Render Deployment
 
