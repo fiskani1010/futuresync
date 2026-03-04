@@ -20,16 +20,22 @@ This project includes:
 - `school-backend` (Web Service)
 - `school-frontend` (Static Site)
 
-### 1. Prepare a MySQL database
+### 1. Prepare an Aiven MySQL database
 
-Render does not provide managed MySQL. Use an external MySQL provider and collect:
+Render does not provide managed MySQL. Use Aiven MySQL and collect:
 - `DB_HOST`
 - `DB_PORT`
 - `DB_USER`
 - `DB_PASSWORD`
 - `DB_NAME`
-- `DB_SSL` (`true` for providers requiring TLS)
-- `DB_SSL_REJECT_UNAUTHORIZED` (`true` unless provider docs require otherwise)
+- `DB_SSL=true`
+- `DB_SSL_REJECT_UNAUTHORIZED=true`
+- `DB_CA_CERT` (paste Aiven CA certificate PEM, use `\n` for line breaks) or `DB_CA_CERT_PATH`
+  - If no CA cert is provided, app defaults to `rejectUnauthorized=false` for SSL connections (Aiven quick-connect mode).
+
+You can also provide Aiven-named variables directly:
+- `AIVEN_MYSQL_HOST`, `AIVEN_MYSQL_PORT`, `AIVEN_MYSQL_USER`, `AIVEN_MYSQL_PASSWORD`, `AIVEN_MYSQL_DATABASE`
+- `AIVEN_CA_CERT`
 
 ### 2. Create services from Blueprint
 
@@ -51,6 +57,7 @@ Set these on `school-backend`:
 Optional:
 - `DB_PORT` (default `3306`)
 - `DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`
+- `DB_CA_CERT` or `DB_CA_CERT_PATH`
 - `TEACHER_USERNAME` (default `teacher`)
 - `CORS_ORIGIN` (optional override; by default backend uses frontend `RENDER_EXTERNAL_URL` from blueprint wiring)
 
