@@ -52,13 +52,13 @@ Set these on `school-backend`:
 - `DB_PASSWORD`
 - `DB_NAME`
 - `JWT_SECRET`
-- `TEACHER_PASSWORD`
 
 Optional:
 - `DB_PORT` (default `3306`)
 - `DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`
 - `DB_CA_CERT` or `DB_CA_CERT_PATH`
 - `TEACHER_USERNAME` (default `teacher`)
+- `TEACHER_PASSWORD` (only needed if you want automatic bootstrap admin creation)
 - `CORS_ORIGIN` (optional override; by default backend uses frontend `RENDER_EXTERNAL_URL` from blueprint wiring)
 
 ### 4. Set frontend API base URL

@@ -37,9 +37,6 @@ const PORT = process.env.PORT || 3000;
 if (isProduction && !process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is required in production');
 }
-if (isProduction && !process.env.TEACHER_PASSWORD) {
-    throw new Error('TEACHER_PASSWORD is required in production');
-}
 
 app.get('/health', async (req, res) => {
     try {
@@ -149,25 +146,31 @@ async function initializeDatabase() {
     }
 
     const bootstrapUsername = process.env.TEACHER_USERNAME || 'teacher';
-    const bootstrapPassword = process.env.TEACHER_PASSWORD || 'teacher123';
-    if (!isProduction && !process.env.TEACHER_PASSWORD) {
-        console.warn('TEACHER_PASSWORD not set. Using insecure development default for bootstrap admin.');
+    const bootstrapPassword = String(process.env.TEACHER_PASSWORD || '');
+    if (!bootstrapPassword) {
+        console.warn('TEACHER_PASSWORD not set. Bootstrap admin auto-creation is disabled.');
     }
     const [teacherRows] = await pool.query(
         'SELECT id FROM teachers WHERE username = ? LIMIT 1',
         [bootstrapUsername]
     );
     if (teacherRows.length === 0) {
-        const { salt, hash } = hashPassword(bootstrapPassword);
-        await pool.query(
-            `
-            INSERT INTO teachers (username, full_name, password_hash, password_salt, role)
-            VALUES (?, ?, ?, ?, 'admin')
-            `,
-            [bootstrapUsername, 'Default Teacher', hash, salt]
-        );
+        if (bootstrapPassword) {
+            const { salt, hash } = hashPassword(bootstrapPassword);
+            await pool.query(
+                `
+                INSERT INTO teachers (username, full_name, password_hash, password_salt, role)
+                VALUES (?, ?, ?, ?, 'admin')
+                `,
+                [bootstrapUsername, 'Default Teacher', hash, salt]
+            );
+        } else {
+            console.warn(`No bootstrap admin created for username "${bootstrapUsername}". Create an admin user manually.`);
+        }
     } else {
-        await pool.query('UPDATE teachers SET role = "admin" WHERE username = ? AND role <> "admin"', [bootstrapUsername]);
+        if (bootstrapPassword) {
+            await pool.query('UPDATE teachers SET role = "admin" WHERE username = ? AND role <> "admin"', [bootstrapUsername]);
+        }
     }
 
     await pool.query(`
