@@ -1,7 +1,7 @@
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 function parseBool(value, fallback) {
     if (typeof value !== 'string') {

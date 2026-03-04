@@ -1,5 +1,5 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 const express = require('express');
 const cors = require('cors');
@@ -175,15 +175,12 @@ async function initializeDatabase() {
 
     const bootstrapUsername = process.env.TEACHER_USERNAME || 'teacher';
     const bootstrapPassword = String(process.env.TEACHER_PASSWORD || '');
-    if (!bootstrapPassword) {
-        console.warn('TEACHER_PASSWORD not set. Bootstrap admin auto-creation is disabled.');
-    }
-    const [teacherRows] = await pool.query(
-        'SELECT id FROM teachers WHERE username = ? LIMIT 1',
-        [bootstrapUsername]
-    );
-    if (teacherRows.length === 0) {
-        if (bootstrapPassword) {
+    if (bootstrapPassword) {
+        const [teacherRows] = await pool.query(
+            'SELECT id FROM teachers WHERE username = ? LIMIT 1',
+            [bootstrapUsername]
+        );
+        if (teacherRows.length === 0) {
             const { salt, hash } = hashPassword(bootstrapPassword);
             await pool.query(
                 `
@@ -193,10 +190,6 @@ async function initializeDatabase() {
                 [bootstrapUsername, 'Default Teacher', hash, salt]
             );
         } else {
-            console.warn(`No bootstrap admin created for username "${bootstrapUsername}". Create an admin user manually.`);
-        }
-    } else {
-        if (bootstrapPassword) {
             await pool.query('UPDATE teachers SET role = "admin" WHERE username = ? AND role <> "admin"', [bootstrapUsername]);
         }
     }
