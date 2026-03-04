@@ -11,9 +11,15 @@ const { hashPassword } = require('./utils/password');
 const app = express();
 
 const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = String(process.env.CORS_ORIGIN || '')
+
+function normalizeOrigin(origin) {
+    return String(origin || '').trim().replace(/\/+$/, '');
+}
+
+const corsOriginSource = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || process.env.FRONTEND_EXTERNAL_URL || '';
+const allowedOrigins = String(corsOriginSource)
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
 
 const corsOptions = {
@@ -21,11 +27,13 @@ const corsOptions = {
         if (!origin) {
             return callback(null, true);
         }
+        const normalizedOrigin = normalizeOrigin(origin);
         if (allowedOrigins.length === 0) {
             return callback(null, !isProduction);
         }
-        return callback(null, allowedOrigins.includes(origin));
-    }
+        return callback(null, allowedOrigins.includes(normalizedOrigin));
+    },
+    credentials: true
 };
 
 app.use(cors(corsOptions));

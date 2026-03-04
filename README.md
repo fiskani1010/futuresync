@@ -63,7 +63,7 @@ Optional:
 - `TEACHER_USERNAME` (default `teacher`)
 - `TEACHER_PASSWORD` (only needed if you want automatic bootstrap admin creation)
 - `TEACHER_INVITE_CODE` (if set, teacher self-registration requires this code)
-- `CORS_ORIGIN` (optional override; by default backend uses frontend `RENDER_EXTERNAL_URL` from blueprint wiring)
+- `CORS_ORIGIN` or `FRONTEND_URL` (optional override; by default backend uses frontend `RENDER_EXTERNAL_URL` from blueprint wiring)
 
 ### 4. Set frontend API base URL
 
