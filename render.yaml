@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: school-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: CORS_ORIGIN="${CORS_ORIGIN:-$FRONTEND_EXTERNAL_URL}" npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_SSL
+        value: false
+      - key: DB_SSL_REJECT_UNAUTHORIZED
+        value: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: FRONTEND_EXTERNAL_URL
+        fromService:
+          type: web
+          name: school-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: JWT_SECRET
+        sync: false
+      - key: TEACHER_USERNAME
+        value: teacher
+      - key: TEACHER_PASSWORD
+        sync: false
+
+  - type: web
+    name: school-frontend
+    runtime: static
+    rootDir: frontend/studentPanel
+    buildCommand: npm ci && VITE_API_BASE_URL="${VITE_API_BASE_URL:-$BACKEND_EXTERNAL_URL/api}" npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: BACKEND_EXTERNAL_URL
+        fromService:
+          type: web
+          name: school-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

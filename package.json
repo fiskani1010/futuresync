@@ -1,0 +1,14 @@
+{
+  "name": "school",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "client": "npm run dev --prefix frontend/studentPanel",
+    "server": "npm run dev --prefix backend",
+    "dev": "npm --prefix frontend/studentPanel exec concurrently \"npm run server\" \"npm run client\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
