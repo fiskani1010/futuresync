@@ -198,7 +198,7 @@ async function initializeDatabase() {
                 [bootstrapUsername, 'Default Teacher', hash, salt]
             );
         } else {
-            await pool.query('UPDATE teachers SET role = "admin" WHERE username = ? AND role <> "admin"', [bootstrapUsername]);
+            await pool.query("UPDATE teachers SET role = 'admin' WHERE username = ? AND role <> 'admin'", [bootstrapUsername]);
         }
     }
 
@@ -220,7 +220,7 @@ async function initializeDatabase() {
             `
         );
         if (firstTeacherRows.length > 0) {
-            await pool.query('UPDATE teachers SET role = "admin" WHERE id = ?', [firstTeacherRows[0].id]);
+            await pool.query("UPDATE teachers SET role = 'admin' WHERE id = ?", [firstTeacherRows[0].id]);
             console.info(`Promoted "${firstTeacherRows[0].username}" as initial admin.`);
         }
     }
